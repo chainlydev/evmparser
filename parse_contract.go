@@ -193,6 +193,7 @@ func (cn *Contract) InitContract() (*eth.Contract, *rpc.Client) {
 	cn.IsAbi()
 	fmt.Println("Abi parsing", cn.address)
 	abi_parser := NewAbiParser(cn.client)
+	fmt.Println("abi parser")
 	abi_string, err := abi_parser.GetAbi(cn.chain, cn.address)
 	fmt.Println("Abi string", cn.address)
 	if err != nil {

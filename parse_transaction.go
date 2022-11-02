@@ -13,6 +13,7 @@ import (
 	"github.com/chainlydev/evmparser/models"
 	"github.com/chenzhijie/go-web3"
 	"github.com/chenzhijie/go-web3/eth"
+	"github.com/chenzhijie/go-web3/rpc"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -57,6 +58,7 @@ var contracts = make(map[string]*Contract)
 var cons = make(map[string]*eth.Contract)
 var tokens = make(map[string]*models.TokenInfo)
 var tokensCall = make(map[string]*TokenParse)
+var clients = make(map[string]*rpc.Client)
 
 func (t *TransactionParse) parse_logs(logs []*types.Log) ([]models.Logs, bool, bool) {
 	var totalLogs []models.Logs
@@ -105,8 +107,9 @@ func (t *TransactionParse) parse_logs(logs []*types.Log) ([]models.Logs, bool, b
 			con = cons[address.Hex()]
 		} else {
 			contract = NewContract(address, 1)
-			con, _ = contract.InitContract()
+			con, client := contract.InitContract()
 			contracts[address.Hex()] = contract
+			clients[address.Hex()] = client
 			cons[address.Hex()] = con
 		}
 		var token_data *models.TokenInfo
@@ -276,6 +279,9 @@ func (t *TransactionParse) Parse() {
 	}
 	data, _ := json.Marshal(transaction)
 	mongo := lib.NewMongo()
+	for _, client := range clients {
+		client.Close()
+	}
 	r, z := mongo.Collection(os.Getenv("TRANSACTION_COLLECTION")).InsertOne(context.Background(), transaction)
 	fmt.Println(r, z)
 	_ = data
