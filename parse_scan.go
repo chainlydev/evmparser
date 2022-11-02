@@ -97,9 +97,7 @@ func (tp ScanParse) AddressDataParse(doc soup.Root, address string) {
 	var creatorAddr string
 	var proxy string
 	var tagsM []string
-	var site string
 	var socialData = make(map[string]string)
-	var typeData string
 	var image string
 	doc2 := doc.Find("div", "class", "py-3")
 	imgBase := doc.Find("h1").Find("img")
@@ -134,12 +132,16 @@ func (tp ScanParse) AddressDataParse(doc soup.Root, address string) {
 	doc3 = doc3.Find("div", "id", "ContentPlaceHolder1_trContract").Find("a")
 	readAsProxyContract := doc.Find("span", "id", "ContentPlaceHolder1_readProxyMessage")
 	tokenInfo := doc.Find("div", "id", "ContentPlaceHolder1_tr_tokeninfo")
+	var site = ""
+	var typeData = ""
 	if tokenInfo.Error == nil {
 		site, typeData, socialData, image, tagsM = tp.GetCoin(address)
 		for _, s := range tagsM {
 			tags = append(tags, s)
 		}
 	}
+	_ = site
+	_ = typeData
 	if readAsProxyContract.Error == nil {
 		if readAsProxyContract.Find("a").Error == nil {
 

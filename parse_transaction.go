@@ -2,10 +2,8 @@ package evm
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"math/big"
-	"os"
 	"reflect"
 	"strings"
 
@@ -15,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/google/logger"
 	"github.com/influxdata/influxdb/pkg/slices"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -31,26 +28,6 @@ type TransactionParse struct {
 
 func initLogger() {
 	const logPath = "./contract_parser.log"
-
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println(r)
-		}
-	}()
-	var verbose = flag.Bool("verbose", false, "print info level logs to stdout")
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println(r)
-		}
-	}()
-	flag.Parse()
-
-	lf, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
-	if err != nil {
-		logger.Fatalf("Failed to open log file: %v", err)
-	}
-	defer lf.Close()
-	defer logger.Init("Listener", *verbose, true, lf).Close()
 }
 
 func NewTransactionParse(receipt *types.Receipt, trans *types.Transaction, chain int, cli *ethclient.Client) *TransactionParse {
@@ -189,11 +166,8 @@ func (t *TransactionParse) parse_logs(logs []*types.Log) ([]models.Logs, bool, b
 				val = allvall
 
 			} else {
-				fmt.Println(reflect.TypeOf(val).Name())
-				fmt.Println(reflect.TypeOf(val).String())
 			}
 			paramters = append(paramters, map[string]any{"key": key, "value": val})
-			fmt.Println(key, val)
 		}
 
 		var tpk []string
@@ -244,7 +218,8 @@ func (t *TransactionParse) Parse() models.Transaction {
 	t.msg = &msg
 	s, err := signer.Sender(t.transaction)
 	logs, is_swap, is_nft := t.parse_logs(t.receipt.Logs)
-
+	_ = s
+	_ = err
 	value, _ := primitive.ParseDecimal128FromBigInt(msg.Value(), 0)
 	if msg.Value().Uint64() > 0 {
 		token := tokensCall["0x0"]

@@ -2,7 +2,6 @@ package lib
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -46,8 +45,6 @@ func (c *MongoConnect) Close() {
 
 func (c *MongoConnect) Collection(name string) *mongo.Collection {
 	var collection *mongo.Collection
-	fmt.Println("c.client", c.client)
-	fmt.Println("Client", Client)
 	if c == nil {
 		c = NewMongo()
 	}
