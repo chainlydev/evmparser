@@ -88,7 +88,6 @@ func (tk *TokenParse) get_db_token() *models.TokenInfo {
 
 func (tk *TokenParse) InitToken() *models.TokenInfo {
 	if tk.contract == nil {
-		logger.Error("Contract is nil")
 		return nil
 	}
 	if _, ok := TokenLists[tk.contractParser.address.String()]; ok {
