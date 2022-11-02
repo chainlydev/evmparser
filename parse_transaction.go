@@ -308,17 +308,22 @@ func (t *TransactionParse) Parse() {
 	}
 	data, _ := json.Marshal(transaction)
 	mongo := lib.NewMongo()
+
+	r, z := mongo.Collection(os.Getenv("TRANSACTION_COLLECTION")).InsertOne(context.Background(), transaction)
+	fmt.Println(r, z)
+	_ = data
+	mongo.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("error close", r)
+		}
+	}()
 	for _, client := range clients {
+		client.Close()
 		defer func() {
 			if r := recover(); r != nil {
 				fmt.Println("error close", r)
 			}
 		}()
-		client.Close()
 	}
-	r, z := mongo.Collection(os.Getenv("TRANSACTION_COLLECTION")).InsertOne(context.Background(), transaction)
-	fmt.Println(r, z)
-	_ = data
-	mongo.Close()
-
 }
