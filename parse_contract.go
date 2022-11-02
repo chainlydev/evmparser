@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -191,27 +190,27 @@ func (cn *Contract) InitContract() (*eth.Contract, *rpc.Client) {
 	var contract *eth.Contract
 	var client *rpc.Client
 	cn.IsAbi()
-	fmt.Println("Abi parsing", cn.address)
+	logger.Info("Abi parsing", cn.address)
 	abi_parser := NewAbiParser(cn.client)
-	fmt.Println("abi parser")
+	logger.Info("abi parser")
 	abi_string, err := abi_parser.GetAbi(cn.chain, cn.address)
-	fmt.Println("Abi string", cn.address)
+	logger.Info("Abi string", cn.address)
 	if err != nil {
 		contract, client = cn.detect_abi()
 	}
-	fmt.Println("Detect Abi", cn.address)
+	logger.Info("Detect Abi", cn.address)
 	if contract == nil {
 		contract, client = cn.init_web3(abi_string)
 	}
-	fmt.Println("WEB3 Abi", cn.address)
+	logger.Info("WEB3 Abi", cn.address)
 	contract_type := cn.detect_type(contract, abi_string)
-	fmt.Println("Detect Type", cn.address)
+	logger.Info("Detect Type", cn.address)
 	if contract_type == "" {
-		fmt.Println("Detect Proxy Swap", cn.address)
+		logger.Info("Detect Proxy Swap", cn.address)
 		contract_type = cn.detect_type_proxy_swap(contract, abi_string)
 	}
 	if contract_type == "Proxy" {
-		fmt.Println("Parse Proxy", cn.address)
+		logger.Info("Parse Proxy", cn.address)
 		err, proxy_addr := cn.parse_proxy(cn.chain, contract)
 
 		if err != nil {
@@ -220,7 +219,7 @@ func (cn *Contract) InitContract() (*eth.Contract, *rpc.Client) {
 		}
 		cn.is_proxy = true
 		cn.proxy_address = &proxy_addr
-		fmt.Println("Proxy Addr", cn.address)
+		logger.Info("Proxy Addr", cn.address)
 		abi_string, _ = abi_parser.GetAbi(cn.chain, proxy_addr)
 		contract, client = cn.init_web3(abi_string)
 		if contract != nil {
@@ -234,7 +233,7 @@ func (cn *Contract) InitContract() (*eth.Contract, *rpc.Client) {
 		logger.Error("can't determinate contract type ", cn.address.Hex())
 	}
 	cn.type_name = contract_type
-	fmt.Println("Evm", cn.address)
+	logger.Info("Evm", cn.address)
 	cn.evm_contract, _ = abi.JSON(bytes.NewReader([]byte(abi_string)))
 	return contract, client
 }

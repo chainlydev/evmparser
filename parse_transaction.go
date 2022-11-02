@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"math/big"
@@ -10,7 +9,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/chainlydev/evmparser/lib"
 	"github.com/chainlydev/evmparser/models"
 	"github.com/chenzhijie/go-web3"
 	"github.com/chenzhijie/go-web3/eth"
@@ -112,19 +110,19 @@ func (t *TransactionParse) parse_logs(logs []*types.Log) ([]models.Logs, bool, b
 	}
 	// var parsed_logs []models.Logs
 	for _, address := range all_address {
-		fmt.Println("Parsing contract", address)
+		logger.Info("Parsing contract", address)
 		var contract *Contract
 		var con *eth.Contract
 		address := common.HexToAddress(address)
 		resp, err := t.cli.CodeAt(context.Background(), address, nil)
 		if err != nil {
-			fmt.Println(resp)
+			logger.Info(resp)
 			panic(err)
 		} else {
 			if len(resp) == 0 {
-				fmt.Println("##############################################")
+				logger.Info("##############################################")
 
-				fmt.Println("This is not contract", address)
+				logger.Info("This is not contract", address)
 				continue
 
 			}
@@ -155,7 +153,7 @@ func (t *TransactionParse) parse_logs(logs []*types.Log) ([]models.Logs, bool, b
 	var is_swap = false
 	var is_nft = false
 	for _, log := range logs {
-		fmt.Println("Parsing Log", log.Address.Hex())
+		logger.Info("Parsing Log", log.Address.Hex())
 		contract := contracts[log.Address.Hex()]
 		tokenCallData := tokensCall[log.Address.Hex()]
 		var call string
@@ -251,7 +249,7 @@ func (t *TransactionParse) parse_logs(logs []*types.Log) ([]models.Logs, bool, b
 	return totalLogs, is_swap, is_nft
 }
 
-func (t *TransactionParse) Parse() {
+func (t *TransactionParse) Parse() models.Transaction {
 
 	config := &params.ChainConfig{
 		ChainID:             big.NewInt(int64(1)),
@@ -273,13 +271,11 @@ func (t *TransactionParse) Parse() {
 	signer := types.MakeSigner(config, t.receipt.BlockNumber)
 	msg, _ := t.transaction.AsMessage(signer, t.transaction.GasFeeCap())
 	t.msg = &msg
-	fmt.Println("----------------------------------------------------------")
-	fmt.Println(t.msg.From())
-	fmt.Println(t.msg.To())
+	logger.Info(t.msg.From())
+	logger.Info(t.msg.To())
 	s, err := signer.Sender(t.transaction)
-	fmt.Println(s, err)
+	logger.Info(s, err)
 	logs, is_swap, is_nft := t.parse_logs(t.receipt.Logs)
-	fmt.Println()
 
 	value, _ := primitive.ParseDecimal128FromBigInt(msg.Value(), 0)
 	if msg.Value().Uint64() > 0 {
@@ -306,13 +302,7 @@ func (t *TransactionParse) Parse() {
 		IsSwap:           is_swap,
 		InteractedTokens: t.interacted,
 	}
-	data, _ := json.Marshal(transaction)
-	mongo := lib.NewMongo()
 
-	r, z := mongo.Collection(os.Getenv("TRANSACTION_COLLECTION")).InsertOne(context.Background(), transaction)
-	fmt.Println(r, z)
-	_ = data
-	mongo.Close()
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("error close", r)
@@ -326,4 +316,5 @@ func (t *TransactionParse) Parse() {
 			}
 		}()
 	}
+	return transaction
 }

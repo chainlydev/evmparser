@@ -15,6 +15,7 @@ import (
 	"github.com/chainlydev/evmparser/lib"
 	"github.com/chainlydev/evmparser/models"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/logger"
 )
 
 type AbiParser struct {
@@ -34,7 +35,7 @@ func NewAbiParser(client lib.MongoConnect) *AbiParser {
 
 func (abi AbiParser) GetAbiEth(addr common.Address) *models.AbiResponse {
 	uri := fmt.Sprintf("https://api.etherscan.io/api?module=contract&action=getabi&address=%s&apikey=%s", addr.Hex(), os.Getenv("ETHERSCAN_KEY"))
-	fmt.Println("Abi Parse from", uri)
+	logger.Info("Abi Parse from", uri)
 	resp := abi.GetAbiEthBase(uri, addr)
 	return resp
 }
@@ -58,7 +59,7 @@ func (abi AbiParser) GetAbiEthBase(uri string, addr common.Address) *models.AbiR
 	var jsonResp *models.EthScanResponse
 	err = json.Unmarshal(body, &jsonResp)
 	if err != nil {
-		fmt.Println(err)
+		logger.Info(err)
 		return nil
 	}
 	if jsonResp.Status == "1" {
@@ -128,7 +129,7 @@ func (abi AbiParser) parse_from_db(chain int, address common.Address) (string, e
 func (abi AbiParser) GetAbi(chain int, address common.Address) (string, error) {
 	data, err := abi.parse_from_db(chain, address)
 	if err != nil {
-		fmt.Println("Abi parse from api")
+		logger.Info("Abi parse from api")
 		data, err = abi.parse_from_api(chain, address)
 		if err != nil {
 			return "", errors.New("not found")
