@@ -33,7 +33,7 @@ type Contract struct {
 
 func NewContract(address common.Address, cli *ethclient.Client, chain int) *Contract {
 
-	mongo := lib.NewMongo()
+	mongo := lib.NewMongo(nil)
 	return &Contract{address: address, chain: chain, client: *mongo, is_proxy: false, proxy_address: nil, etherClient: cli, type_name: "fittt"}
 }
 

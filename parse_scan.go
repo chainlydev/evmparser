@@ -28,7 +28,7 @@ type ScanParse struct {
 var scanParse *ScanParse
 
 func NewScanParse() *ScanParse {
-	client := lib.NewMongo()
+	client := lib.NewMongo(nil)
 	ctx := context.Background()
 	if scanParse == nil {
 		scanParse = &ScanParse{client: client, jobs: make(map[string]bool), ctx: ctx}

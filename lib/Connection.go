@@ -15,14 +15,17 @@ type MongoConnect struct {
 
 var Client *mongo.Client
 
-func NewMongo() *MongoConnect {
+func NewMongo(client *mongo.Client) *MongoConnect {
 	godotenv.Load()
 
-	mongoDb := &MongoConnect{}
+	mongoDb := &MongoConnect{client: client}
 	mongoDb.Connect()
 	return mongoDb
 }
 func (c *MongoConnect) Connect() {
+	if c.client != nil {
+		Client = c.client
+	}
 	if Client != nil {
 		c.client = Client
 		return

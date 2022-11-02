@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/chainlydev/evmparser/lib"
 	"github.com/chainlydev/evmparser/models"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,10 +16,12 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/influxdata/influxdb/pkg/slices"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type TransactionParse struct {
 	receipt     *types.Receipt
+	dbCon       *mongo.Client
 	transaction *types.Transaction
 	chain       int
 	msg         *types.Message
@@ -30,10 +33,10 @@ func initLogger() {
 	const logPath = "./contract_parser.log"
 }
 
-func NewTransactionParse(receipt *types.Receipt, trans *types.Transaction, chain int, cli *ethclient.Client) *TransactionParse {
+func NewTransactionParse(receipt *types.Receipt, trans *types.Transaction, chain int, cli *ethclient.Client, mongo *mongo.Client) *TransactionParse {
 	initLogger()
-
-	return &TransactionParse{transaction: trans, receipt: receipt, cli: cli}
+	_ = lib.NewMongo(mongo)
+	return &TransactionParse{transaction: trans, receipt: receipt, cli: cli, dbCon: mongo}
 }
 
 var contracts = make(map[string]*Contract)

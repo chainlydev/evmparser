@@ -67,7 +67,7 @@ func (tk *TokenParse) ParseWithPrice() *models.TokenData {
 	}
 }
 func (tk *TokenParse) get_db_token() *models.TokenInfo {
-	mongo := lib.NewMongo()
+	mongo := lib.NewMongo(nil)
 	if tk.contract == nil {
 		return nil
 	}
@@ -161,7 +161,7 @@ func (tk *TokenParse) InitToken() *models.TokenInfo {
 			ProxyAddress:  proxy_address,
 		}
 		MemoryToken[tk.contractParser.address.String()] = token
-		mongo := lib.NewMongo()
+		mongo := lib.NewMongo(nil)
 		_, err := mongo.Collection("token").InsertOne(context.Background(), token)
 		if err != nil {
 			logger.Info(err)
