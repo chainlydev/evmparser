@@ -49,7 +49,7 @@ func (c *MongoConnect) Close() {
 func (c *MongoConnect) Collection(name string) *mongo.Collection {
 	var collection *mongo.Collection
 	if c == nil {
-		c = NewMongo()
+		c = NewMongo(nil)
 	}
 	if c.client == nil {
 		c.Connect()
