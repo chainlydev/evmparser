@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/chainlydev/evmparser/models"
-	"github.com/chenzhijie/go-web3"
-	"github.com/chenzhijie/go-web3/rpc"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,13 +24,10 @@ type TransactionParse struct {
 	receipt     *types.Receipt
 	transaction *types.Transaction
 	chain       int
-	web3        *web3.Web3
 	msg         *types.Message
 	cli         *ethclient.Client
 	interacted  []string
 }
-
-var Web3Item *web3.Web3
 
 func initLogger() {
 	const logPath = "./contract_parser.log"
@@ -60,31 +55,14 @@ func initLogger() {
 
 func NewTransactionParse(receipt *types.Receipt, trans *types.Transaction, chain int, cli *ethclient.Client) *TransactionParse {
 	initLogger()
-	defer func() {
-	}()
-	var rpcProviderURL = os.Getenv("ETH_PROVIDER")
-	if chain == 137 {
-		rpcProviderURL = os.Getenv("POLYGON_PROVIDER")
-	}
-	if chain == 56 {
-		rpcProviderURL = "https://bsc-dataseed.binance.org/"
-	}
 
-	var web3Item *web3.Web3
-	if Web3Item != nil {
-		web3Item = Web3Item
-	} else {
-		web3Item, _ = web3.NewWeb3(rpcProviderURL)
-	}
-
-	return &TransactionParse{transaction: trans, receipt: receipt, web3: web3Item, cli: cli}
+	return &TransactionParse{transaction: trans, receipt: receipt, cli: cli}
 }
 
 var contracts = make(map[string]*Contract)
 var cons = make(map[string]*abi.ABI)
 var tokens = make(map[string]*models.TokenInfo)
 var tokensCall = make(map[string]*TokenParse)
-var clients = make(map[string]*rpc.Client)
 
 func (t *TransactionParse) parse_logs(logs []*types.Log) ([]models.Logs, bool, bool) {
 	var totalLogs []models.Logs
@@ -299,20 +277,6 @@ func (t *TransactionParse) Parse() models.Transaction {
 		IsNFT:            is_nft,
 		IsSwap:           is_swap,
 		InteractedTokens: t.interacted,
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("error close", r)
-		}
-	}()
-	for _, client := range clients {
-		client.Close()
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Println("error close", r)
-			}
-		}()
 	}
 	return transaction
 }
