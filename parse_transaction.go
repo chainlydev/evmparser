@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"math/big"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/google/logger"
 	"github.com/influxdata/influxdb/pkg/slices"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -36,6 +38,17 @@ type TransactionParse struct {
 var Web3Item *web3.Web3
 
 func NewTransactionParse(receipt *types.Receipt, trans *types.Transaction, chain int, cli *ethclient.Client) *TransactionParse {
+	const logPath = "./contract_parser.log"
+
+	var verbose = flag.Bool("verbose", false, "print info level logs to stdout")
+	flag.Parse()
+
+	lf, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
+	if err != nil {
+		logger.Fatalf("Failed to open log file: %v", err)
+	}
+	defer lf.Close()
+	defer logger.Init("Listener", *verbose, true, lf).Close()
 	var rpcProviderURL = os.Getenv("ETH_PROVIDER")
 	if chain == 137 {
 		rpcProviderURL = os.Getenv("POLYGON_PROVIDER")
@@ -280,6 +293,11 @@ func (t *TransactionParse) Parse() {
 	data, _ := json.Marshal(transaction)
 	mongo := lib.NewMongo()
 	for _, client := range clients {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("error close", r)
+			}
+		}()
 		client.Close()
 	}
 	r, z := mongo.Collection(os.Getenv("TRANSACTION_COLLECTION")).InsertOne(context.Background(), transaction)
