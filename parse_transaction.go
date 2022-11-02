@@ -40,7 +40,17 @@ var Web3Item *web3.Web3
 func NewTransactionParse(receipt *types.Receipt, trans *types.Transaction, chain int, cli *ethclient.Client) *TransactionParse {
 	const logPath = "./contract_parser.log"
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r)
+		}
+	}()
 	var verbose = flag.Bool("verbose", false, "print info level logs to stdout")
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r)
+		}
+	}()
 	flag.Parse()
 
 	lf, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
