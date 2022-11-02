@@ -38,13 +38,15 @@ func NewContract(address common.Address, cli *ethclient.Client, chain int) *Cont
 }
 
 func (cn *Contract) init_web3(abiString string) *abi.ABI {
-	abiCon, err := abi.JSON(bytes.NewReader([]byte(abiString)))
-	if err != nil {
-		logger.Error(err)
-		return nil
-	}
+	if abiString != "" {
+		abiCon, err := abi.JSON(bytes.NewReader([]byte(abiString)))
+		if err != nil {
+			return nil
+		}
 
-	return &abiCon
+		return &abiCon
+	}
+	return nil
 }
 
 func (cn *Contract) detect_type_proxy_swap(contract *abi.ABI, abi_string string) string {
