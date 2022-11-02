@@ -37,7 +37,7 @@ type TransactionParse struct {
 
 var Web3Item *web3.Web3
 
-func NewTransactionParse(receipt *types.Receipt, trans *types.Transaction, chain int, cli *ethclient.Client) *TransactionParse {
+func initLogger() {
 	const logPath = "./contract_parser.log"
 
 	defer func() {
@@ -59,6 +59,12 @@ func NewTransactionParse(receipt *types.Receipt, trans *types.Transaction, chain
 	}
 	defer lf.Close()
 	defer logger.Init("Listener", *verbose, true, lf).Close()
+}
+
+func NewTransactionParse(receipt *types.Receipt, trans *types.Transaction, chain int, cli *ethclient.Client) *TransactionParse {
+	initLogger()
+	defer func() {
+	}()
 	var rpcProviderURL = os.Getenv("ETH_PROVIDER")
 	if chain == 137 {
 		rpcProviderURL = os.Getenv("POLYGON_PROVIDER")
