@@ -35,7 +35,6 @@ func NewAbiParser(client lib.MongoConnect) *AbiParser {
 
 func (abi AbiParser) GetAbiEth(addr common.Address) *models.AbiResponse {
 	uri := fmt.Sprintf("https://api.etherscan.io/api?module=contract&action=getabi&address=%s&apikey=%s", addr.Hex(), os.Getenv("ETHERSCAN_KEY"))
-	logger.Info("Abi Parse from", uri)
 	resp := abi.GetAbiEthBase(uri, addr)
 	return resp
 }
@@ -129,7 +128,6 @@ func (abi AbiParser) parse_from_db(chain int, address common.Address) (string, e
 func (abi AbiParser) GetAbi(chain int, address common.Address) (string, error) {
 	data, err := abi.parse_from_db(chain, address)
 	if err != nil {
-		logger.Info("Abi parse from api")
 		data, err = abi.parse_from_api(chain, address)
 		if err != nil {
 			return "", errors.New("not found")

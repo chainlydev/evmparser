@@ -220,27 +220,19 @@ func (cn *Contract) IsAbi() bool {
 func (cn *Contract) InitContract() *abi.ABI {
 	var contract *abi.ABI
 	cn.IsAbi()
-	logger.Info("Abi parsing", cn.address)
 	abi_parser := NewAbiParser(cn.client)
-	logger.Info("abi parser")
 	abi_string, err := abi_parser.GetAbi(cn.chain, cn.address)
-	logger.Info("Abi string", cn.address)
 	if err != nil {
 		contract = cn.detect_abi()
 	}
-	logger.Info("Detect Abi", cn.address)
 	if contract == nil {
 		contract = cn.init_web3(abi_string)
 	}
-	logger.Info("WEB3 Abi", cn.address)
 	contract_type := cn.detect_type(contract, abi_string)
-	logger.Info("Detect Type", cn.address)
 	if contract_type == "" {
-		logger.Info("Detect Proxy Swap", cn.address)
 		contract_type = cn.detect_type_proxy_swap(contract, abi_string)
 	}
 	if contract_type == "Proxy" {
-		logger.Info("Parse Proxy", cn.address)
 		err, proxy_addr := cn.parse_proxy(cn.chain, contract)
 
 		if err != nil {
@@ -249,7 +241,6 @@ func (cn *Contract) InitContract() *abi.ABI {
 		}
 		cn.is_proxy = true
 		cn.proxy_address = &proxy_addr
-		logger.Info("Proxy Addr", cn.address)
 		abi_string, _ = abi_parser.GetAbi(cn.chain, proxy_addr)
 		contract = cn.init_web3(abi_string)
 		if contract != nil {
@@ -263,7 +254,6 @@ func (cn *Contract) InitContract() *abi.ABI {
 		logger.Error("can't determinate contract type ", cn.address.Hex())
 	}
 	cn.type_name = contract_type
-	logger.Info("Evm", cn.address)
 	cn.evm_contract, _ = abi.JSON(bytes.NewReader([]byte(abi_string)))
 
 	return contract

@@ -93,17 +93,13 @@ func (tk *TokenParse) InitToken() *models.TokenInfo {
 	}
 	if _, ok := TokenLists[tk.contractParser.address.String()]; ok {
 		token := TokenLists[tk.contractParser.address.String()]
-		logger.Info("Contract already fetched")
 		return &token
 	}
 	item := tk.get_db_token()
 	if item != nil {
-		logger.Info("Contract already fetched in db")
 		return item
 	}
-	logger.Info("Contract Fetching Now")
 	cType := tk.contractParser.GetType()
-	logger.Info("Contract Type", cType)
 
 	if slices.ExistsIgnoreCase([]string{"ERC20", "ERC721", "ERC777", "ERC1155"}, cType) {
 

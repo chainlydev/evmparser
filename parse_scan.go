@@ -122,7 +122,6 @@ func (tp ScanParse) AddressDataParse(doc soup.Root, address string) {
 			for _, item := range chall.FindAll("input") {
 				params := item.Attrs()
 				data.Add(params["name"], params["value"])
-				fmt.Println(params["name"])
 
 			}
 			urli := chall.Attrs()["action"]
@@ -161,7 +160,6 @@ func (tp ScanParse) AddressDataParse(doc soup.Root, address string) {
 		downloadFile("https://etherscan.io/"+image, "images/"+address+".png")
 		image = address + ".png"
 	}
-	fmt.Println(creator, creatorAddr, tags, proxy, site, typeData, site, socialData)
 	resp, err := tp.client.Collection("token").UpdateMany(context.Background(), bson.M{"address": address}, bson.M{"$set": bson.M{
 		"image":            image,
 		"tags":             tags,
