@@ -285,5 +285,6 @@ func (t *TransactionParse) Parse() {
 	r, z := mongo.Collection(os.Getenv("TRANSACTION_COLLECTION")).InsertOne(context.Background(), transaction)
 	fmt.Println(r, z)
 	_ = data
+	mongo.Close()
 
 }

@@ -30,6 +30,12 @@ func (c *MongoConnect) Connect() {
 	c.client = con
 	Client = con
 }
+func (c *MongoConnect) Close() {
+
+	c.client.Disconnect(context.TODO())
+	Client = nil
+
+}
 
 func (c *MongoConnect) Collection(name string) *mongo.Collection {
 	var collection *mongo.Collection
