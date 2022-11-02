@@ -7,7 +7,7 @@ import (
 
 	"github.com/chainlydev/evmparser/lib"
 	"github.com/chainlydev/evmparser/models"
-	"github.com/chenzhijie/go-web3/eth"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/google/logger"
 	"github.com/influxdata/influxdb/pkg/slices"
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,14 +18,14 @@ var TokenLists = make(map[string]models.TokenInfo)
 var MemoryToken = make(map[string]models.TokenData)
 
 type TokenParse struct {
-	contract       *eth.Contract
+	contract       *abi.ABI
 	contractParser *Contract
 	is_proxy       bool
 	is_base        bool
 	chain          int
 }
 
-func NewTokenParse(contract *eth.Contract, contractParser *Contract, chain int, is_base bool) *TokenParse {
+func NewTokenParse(contract *abi.ABI, contractParser *Contract, chain int, is_base bool) *TokenParse {
 	return &TokenParse{contract: contract, contractParser: contractParser, chain: chain, is_base: is_base}
 }
 func (tk *TokenParse) ParseWithPrice() *models.TokenData {
@@ -48,8 +48,8 @@ func (tk *TokenParse) ParseWithPrice() *models.TokenData {
 	if tk.contract == nil {
 		return nil
 	}
-	if slices.Exists(keys, tk.contract.Address().Hex()) {
-		tinfo := TokenLists[tk.contract.Address().Hex()]
+	if slices.Exists(keys, tk.contractParser.address.String()) {
+		tinfo := TokenLists[tk.contractParser.address.String()]
 		tkoninf = &tinfo
 
 	} else {
@@ -71,7 +71,7 @@ func (tk *TokenParse) get_db_token() *models.TokenInfo {
 	if tk.contract == nil {
 		return nil
 	}
-	result := mongo.Collection("token").FindOne(context.Background(), bson.M{"address": tk.contract.Address().Hex()})
+	result := mongo.Collection("token").FindOne(context.Background(), bson.M{"address": tk.contractParser.address.String()})
 	var token models.TokenData
 	err := result.Decode(&token)
 	if err != nil {
@@ -86,16 +86,13 @@ func (tk *TokenParse) get_db_token() *models.TokenInfo {
 	}
 }
 
-var scan = NewScanParse()
-var inserted []string
-
 func (tk *TokenParse) InitToken() *models.TokenInfo {
 	if tk.contract == nil {
 		logger.Error("Contract is nil")
 		return nil
 	}
-	if _, ok := TokenLists[tk.contract.Address().Hex()]; ok {
-		token := TokenLists[tk.contract.Address().Hex()]
+	if _, ok := TokenLists[tk.contractParser.address.String()]; ok {
+		token := TokenLists[tk.contractParser.address.String()]
 		logger.Info("Contract already fetched")
 		return &token
 	}
@@ -110,10 +107,10 @@ func (tk *TokenParse) InitToken() *models.TokenInfo {
 
 	if slices.ExistsIgnoreCase([]string{"ERC20", "ERC721", "ERC777", "ERC1155"}, cType) {
 
-		symbol, _ := tk.contract.Call("symbol")
-		name, _ := tk.contract.Call("name")
-		decimal, _ := tk.contract.Call("decimals")
-		total_supply, _ := tk.contract.Call("totalSupply")
+		symbol := tk.contractParser.Call("symbol")
+		name := tk.contractParser.Call("name")
+		decimal := tk.contractParser.Call("decimals")
+		total_supply := tk.contractParser.Call("totalSupply")
 		if name == nil {
 			name = ""
 		}
@@ -146,19 +143,19 @@ func (tk *TokenParse) InitToken() *models.TokenInfo {
 		tsup, _ := primitive.ParseDecimal128(fmt.Sprint(total_supply))
 
 		tokeninf := models.TokenInfo{
-			Address:     tk.contract.Address().Hex(),
+			Address:     tk.contractParser.address.String(),
 			Name:        name.(string),
 			Symbol:      symbol.(string),
 			Decimal:     decimal,
 			TotalSupply: tsup,
 		}
-		TokenLists[tk.contract.Address().Hex()] = tokeninf
+		TokenLists[tk.contractParser.address.String()] = tokeninf
 		var proxy_address string
 		if tk.contractParser.proxy_address != nil {
 			proxy_address = tk.contractParser.proxy_address.Hex()
 		}
 		token := models.TokenData{
-			Address:       tk.contract.Address().Hex(),
+			Address:       tk.contractParser.address.String(),
 			Name:          name.(string),
 			Symbol:        symbol.(string),
 			Decimal:       decimal,
@@ -167,33 +164,12 @@ func (tk *TokenParse) InitToken() *models.TokenInfo {
 			ProxyContract: tk.is_proxy,
 			ProxyAddress:  proxy_address,
 		}
-		MemoryToken[tk.contract.Address().Hex()] = token
+		MemoryToken[tk.contractParser.address.String()] = token
 		mongo := lib.NewMongo()
-		if len(MemoryToken) > 0 {
-			var items []interface{}
-			for _, tokenMemory := range MemoryToken {
-				finder, _ := mongo.Collection("token").Find(context.Background(), bson.M{"address": tokenMemory.Address})
-				logger.Info("Total Length", finder.RemainingBatchLength())
-				if finder.RemainingBatchLength() == 0 {
-					if !slices.ExistsIgnoreCase(inserted, tokenMemory.Address) {
-
-						items = append(items, tokenMemory)
-						inserted = append(inserted, tokenMemory.Address)
-					}
-				}
-			}
-			_, err := mongo.Collection("token").InsertMany(context.Background(), items)
-			if err != nil {
-				logger.Info(err)
-				panic("Error Mongo")
-			}
-
-			for k := range MemoryToken {
-				address := MemoryToken[k].Address
-				scan.GetAddress(address)
-				delete(MemoryToken, k)
-			}
-
+		_, err := mongo.Collection("token").InsertOne(context.Background(), token)
+		if err != nil {
+			logger.Info(err)
+			panic("Error Mongo")
 		}
 
 		return &tokeninf

@@ -2,21 +2,20 @@ package evm
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
-	"math/big"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/chainlydev/evmparser/lib"
-	"github.com/chenzhijie/go-web3"
-	"github.com/chenzhijie/go-web3/eth"
-	"github.com/chenzhijie/go-web3/rpc"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/logger"
 	"github.com/influxdata/influxdb/pkg/slices"
 )
@@ -29,31 +28,30 @@ type Contract struct {
 	proxy_address *common.Address
 	type_name     string
 	evm_contract  abi.ABI
+	etherClient   *ethclient.Client
 }
 
-func NewContract(address common.Address, chain int) *Contract {
+func NewContract(address common.Address, cli *ethclient.Client, chain int) *Contract {
 
 	mongo := lib.NewMongo()
-	return &Contract{address: address, chain: chain, client: *mongo, is_proxy: false, proxy_address: nil, type_name: "fittt"}
+	return &Contract{address: address, chain: chain, client: *mongo, is_proxy: false, proxy_address: nil, etherClient: cli, type_name: "fittt"}
 }
 
-func (cn *Contract) init_web3(abi string) (*eth.Contract, *rpc.Client) {
-	var rpcProviderURL = os.Getenv("ETH_PROVIDER")
-	if cn.chain == 137 {
-		rpcProviderURL = os.Getenv("POLYGON_PROVIDER")
-	}
-	if cn.chain == 56 {
-		rpcProviderURL = "https://bsc-dataseed.binance.org/"
+func (cn *Contract) init_web3(abiString string) *abi.ABI {
+	abiCon, err := abi.JSON(bytes.NewReader([]byte(abiString)))
+	if err != nil {
+		logger.Error(err)
+		return nil
 	}
 
-	web3Item, _ := web3.NewWeb3(rpcProviderURL)
-	rpc, _ := rpc.NewClient(rpcProviderURL, "")
-	contract, _ := web3Item.Eth.NewContract(abi, cn.address.Hex())
-	return contract, rpc
+	return &abiCon
 }
 
-func (cn *Contract) detect_type_proxy_swap(contract *eth.Contract, abi_string string) string {
-	methods := contract.AllMethods()
+func (cn *Contract) detect_type_proxy_swap(contract *abi.ABI, abi_string string) string {
+	var methods []string
+	for key, _ := range contract.Methods {
+		methods = append(methods, key)
+	}
 	for _, method := range methods {
 		if strings.ContainsAny(strings.ToLower(method), "domainseparator") {
 			return "SWAP"
@@ -64,8 +62,12 @@ func (cn *Contract) detect_type_proxy_swap(contract *eth.Contract, abi_string st
 	}
 	return ""
 }
-func (cn *Contract) detect_type(contract *eth.Contract, abi_string string) string {
-	methods := contract.AllMethods()
+func (cn *Contract) detect_type(contract *abi.ABI, abi_string string) string {
+
+	var methods []string
+	for key, _ := range contract.Methods {
+		methods = append(methods, key)
+	}
 
 	if slices.ExistsIgnoreCase(methods, "name") &&
 		slices.ExistsIgnoreCase(methods, "information") {
@@ -149,10 +151,39 @@ func (cn *Contract) get_rpc_call(chain int, msg interface{}) (error, interface{}
 	return nil, response
 
 }
-func (cn *Contract) parse_proxy(chain int, contract *eth.Contract) (error, common.Address) {
-	respImp, errImp := contract.Call("implementation")
+
+func (cn *Contract) Call(name string, args ...interface{}) interface{} {
+	data, err := cn.evm_contract.Pack(name, args...)
+	if err != nil {
+		panic(err)
+	}
+	msg := ethereum.CallMsg{
+		To:   &cn.address,
+		Data: data,
+	}
+	resp, err := cn.etherClient.CallContract(context.Background(), msg, nil)
+	if err != nil {
+		panic(err)
+	}
+	var inte interface{}
+
+	err = cn.evm_contract.UnpackIntoInterface(&inte, name, resp)
+	if err != nil {
+		panic(err)
+	}
+
+	return inte
+}
+
+func (cn *Contract) parse_proxy(chain int, contract *abi.ABI) (error, common.Address) {
+	data, _ := contract.Pack("implementation")
+	msg := ethereum.CallMsg{
+		To:   &cn.address,
+		Data: data,
+	}
+	respImp, errImp := cn.etherClient.CallContract(context.Background(), msg, nil)
 	if errImp == nil {
-		return nil, respImp.(common.Address)
+		return nil, common.BytesToAddress(respImp)
 
 	}
 	know_hashes := []string{
@@ -186,9 +217,8 @@ func (cn *Contract) IsAbi() bool {
 
 	return false
 }
-func (cn *Contract) InitContract() (*eth.Contract, *rpc.Client) {
-	var contract *eth.Contract
-	var client *rpc.Client
+func (cn *Contract) InitContract() *abi.ABI {
+	var contract *abi.ABI
 	cn.IsAbi()
 	logger.Info("Abi parsing", cn.address)
 	abi_parser := NewAbiParser(cn.client)
@@ -196,11 +226,11 @@ func (cn *Contract) InitContract() (*eth.Contract, *rpc.Client) {
 	abi_string, err := abi_parser.GetAbi(cn.chain, cn.address)
 	logger.Info("Abi string", cn.address)
 	if err != nil {
-		contract, client = cn.detect_abi()
+		contract = cn.detect_abi()
 	}
 	logger.Info("Detect Abi", cn.address)
 	if contract == nil {
-		contract, client = cn.init_web3(abi_string)
+		contract = cn.init_web3(abi_string)
 	}
 	logger.Info("WEB3 Abi", cn.address)
 	contract_type := cn.detect_type(contract, abi_string)
@@ -214,14 +244,14 @@ func (cn *Contract) InitContract() (*eth.Contract, *rpc.Client) {
 		err, proxy_addr := cn.parse_proxy(cn.chain, contract)
 
 		if err != nil {
-			logger.Error("proxy address error ", contract.Address().Hex(), cn.address.Hex(), contract_type)
+			logger.Error("proxy address error ", cn.address.Hex(), contract_type)
 
 		}
 		cn.is_proxy = true
 		cn.proxy_address = &proxy_addr
 		logger.Info("Proxy Addr", cn.address)
 		abi_string, _ = abi_parser.GetAbi(cn.chain, proxy_addr)
-		contract, client = cn.init_web3(abi_string)
+		contract = cn.init_web3(abi_string)
 		if contract != nil {
 
 			contract_type = cn.detect_type(contract, abi_string)
@@ -235,15 +265,15 @@ func (cn *Contract) InitContract() (*eth.Contract, *rpc.Client) {
 	cn.type_name = contract_type
 	logger.Info("Evm", cn.address)
 	cn.evm_contract, _ = abi.JSON(bytes.NewReader([]byte(abi_string)))
-	return contract, client
+
+	return contract
 }
 
 func (cn *Contract) GetType() string {
 	return cn.type_name
 }
-func (cn *Contract) detect_abi() (*eth.Contract, *rpc.Client) {
-	var contract *eth.Contract
-	var client *rpc.Client
+func (cn *Contract) detect_abi() *abi.ABI {
+	var contract *abi.ABI
 	var ERC20_String = `[
 		{
 		  "constant": true,
@@ -938,22 +968,35 @@ func (cn *Contract) detect_abi() (*eth.Contract, *rpc.Client) {
     "type": "function"
   }
 ]`
-	contract, client = cn.init_web3(ERC20_String)
-	_, err := contract.Call("totalSupply")
+	contract = cn.init_web3(ERC20_String)
+	data, err := contract.Pack("totalSupply")
+	msg := ethereum.CallMsg{
+		To:   &cn.address,
+		Data: data,
+	}
+	_, err = cn.etherClient.CallContract(context.Background(), msg, nil)
+
 	if err != nil {
-		contract, client = cn.init_web3(ERC721_String)
-		_, err = contract.Call("ownerOf", big.NewInt(1))
-		if err != nil {
-			contract, client = cn.init_web3(ERC1155_String)
-			_, err = contract.Call("uri", big.NewInt(1))
-			if err != nil {
-				// @TODO: digerleri de yapilacak
-			}
-			return contract, client
+		contract = cn.init_web3(ERC721_String)
+		data, err := contract.Pack("ownerOf")
+		msg := ethereum.CallMsg{
+			To:   &cn.address,
+			Data: data,
 		}
-		return contract, client
+		_, err = cn.etherClient.CallContract(context.Background(), msg, nil)
+		if err != nil {
+			contract = cn.init_web3(ERC1155_String)
+			data, err = contract.Pack("uri")
+			msg := ethereum.CallMsg{
+				To:   &cn.address,
+				Data: data,
+			}
+			_, err = cn.etherClient.CallContract(context.Background(), msg, nil)
+			return contract
+		}
+		return contract
 
 	}
 
-	return contract, client
+	return contract
 }

@@ -2,8 +2,10 @@ package lib
 
 import (
 	"context"
+	"fmt"
 	"os"
 
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -15,6 +17,8 @@ type MongoConnect struct {
 var Client *mongo.Client
 
 func NewMongo() *MongoConnect {
+	godotenv.Load()
+
 	mongoDb := &MongoConnect{}
 	mongoDb.Connect()
 	return mongoDb
@@ -25,7 +29,10 @@ func (c *MongoConnect) Connect() {
 		return
 	}
 	uri := os.Getenv("DB_URL")
-	con, _ := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
+	con, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
+	if err != nil {
+		panic(err)
+	}
 
 	c.client = con
 	Client = con
@@ -39,15 +46,14 @@ func (c *MongoConnect) Close() {
 
 func (c *MongoConnect) Collection(name string) *mongo.Collection {
 	var collection *mongo.Collection
-	defer func() {
-		if r := recover(); r != nil {
-			err := c.client.Connect(context.TODO())
-			if err != nil {
-				c.Connect()
-			}
-			collection = c.client.Database(os.Getenv("DB_NAME")).Collection(name)
-		}
-	}()
+	fmt.Println("c.client", c.client)
+	fmt.Println("Client", Client)
+	if c == nil {
+		c = NewMongo()
+	}
+	if c.client == nil {
+		c.Connect()
+	}
 	collection = c.client.Database(os.Getenv("DB_NAME")).Collection(name)
 	return collection
 }

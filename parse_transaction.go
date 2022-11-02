@@ -11,7 +11,6 @@ import (
 
 	"github.com/chainlydev/evmparser/models"
 	"github.com/chenzhijie/go-web3"
-	"github.com/chenzhijie/go-web3/eth"
 	"github.com/chenzhijie/go-web3/rpc"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -82,7 +81,7 @@ func NewTransactionParse(receipt *types.Receipt, trans *types.Transaction, chain
 }
 
 var contracts = make(map[string]*Contract)
-var cons = make(map[string]*eth.Contract)
+var cons = make(map[string]*abi.ABI)
 var tokens = make(map[string]*models.TokenInfo)
 var tokensCall = make(map[string]*TokenParse)
 var clients = make(map[string]*rpc.Client)
@@ -112,7 +111,7 @@ func (t *TransactionParse) parse_logs(logs []*types.Log) ([]models.Logs, bool, b
 	for _, address := range all_address {
 		logger.Info("Parsing contract", address)
 		var contract *Contract
-		var con *eth.Contract
+		var con *abi.ABI
 		address := common.HexToAddress(address)
 		resp, err := t.cli.CodeAt(context.Background(), address, nil)
 		if err != nil {
@@ -133,10 +132,9 @@ func (t *TransactionParse) parse_logs(logs []*types.Log) ([]models.Logs, bool, b
 			contract = contracts[address.Hex()]
 			con = cons[address.Hex()]
 		} else {
-			contract = NewContract(address, 1)
-			con, client := contract.InitContract()
+			contract = NewContract(address, t.cli, 1)
+			con := contract.InitContract()
 			contracts[address.Hex()] = contract
-			clients[address.Hex()] = client
 			cons[address.Hex()] = con
 		}
 		var token_data *models.TokenInfo

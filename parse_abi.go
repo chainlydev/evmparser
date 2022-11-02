@@ -96,13 +96,13 @@ func (abi AbiParser) parse_from_api(chain int, address common.Address) (string, 
 	switch chain {
 	case 1:
 		resp = abi.GetAbiEth(address)
-		break
+
 	case 137:
 		resp = abi.GetAbiPolygon(address)
-		break
+
 	case 56:
 		resp = abi.GetAbiBsc(address)
-		break
+
 	}
 
 	if resp != nil {
